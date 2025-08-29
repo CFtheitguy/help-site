@@ -57,6 +57,8 @@
       <span class="pill" id="whoami"></span>
       <span class="pill" id="sess"></span>
       <span class="pill" id="allow"></span>
+      <span style="flex:1"></span>
+      <button id="btnLogout" title="Clear session cookie">Logout</button>
     </header>
 
     <div class="grid">
@@ -121,8 +123,13 @@
 const API="https://api.help.linearit.co";
 const $=id=>document.getElementById(id);
 
+function urlHasForceLogin(){ return /[?#]forceLogin=1\b/.test(location.href); }
+
 // ----- login / diag -----
 async function diag(){
+  // If forceLogin flag set, show login immediately (ignores any existing cookie)
+  if(urlHasForceLogin()){ showLogin(); return false; }
+
   const r=await fetch(`${API}/admin/diag`,{credentials:"include"});
   if(r.status===401){ showLogin(); return false; }
   const j=await r.json().catch(()=>({}));
@@ -134,13 +141,24 @@ async function diag(){
 }
 function showLogin(){ $("loginBox").style.display="block"; $("app").style.display="none"; }
 function showApp(){ $("loginBox").style.display="none"; $("app").style.display="block"; }
+
 $("btnLogin").onclick=async()=>{
   const pw=$("pw").value.trim();
   $("loginMsg").textContent="Logging in…";
-  const r=await fetch(`${API}/admin/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw}),credentials:"include"});
+  const r=await fetch(`${API}/admin/login`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:pw}),credentials:"include"
+  });
   const j=await r.json().catch(()=>({}));
   if(j.ok){ $("loginMsg").textContent="Success!"; setTimeout(()=>location.reload(),500); }
   else $("loginMsg").textContent="Unauthorized.";
+};
+
+// Client-side logout (best-effort): navigate with forceLogin flag
+$("btnLogout").onclick=()=>{
+  // We can’t delete HttpOnly cookie from JS, but we can take user to login immediately:
+  const base=location.href.replace(/[?#].*$/,"");
+  location.href=base + (base.includes("?")?"&":"?") + "forceLogin=1";
 };
 
 // ----- utils -----
@@ -180,7 +198,6 @@ function parseCommentBody(body){
 }
 function renderComments(issue,comments){
   const box=$("comments"); box.innerHTML="";
-  // issue body
   const d0=document.createElement("div"); d0.className="comment";
   d0.innerHTML=`<span class="badge">Issue body</span><div style="height:6px"></div>${parseCommentBody(issue.body||"").html}`;
   box.appendChild(d0);
@@ -222,8 +239,8 @@ async function refreshList(kind){
     $list.innerHTML="";
     for(const it of items){
       const div=document.createElement("div"); div.className="item";
-      div.innerHTML=`<div style="font-weight:600">${esc(it.title)} <span class="muted">#${it.number}</span></div>
-                     <div class="muted">${esc((it.labels||[]).map(l=>l.name).join(", "))}</div>`;
+      div.innerHTML=`<div style="font-weight:600">${(it.title||"(no title)") } <span class="muted">#${it.number}</span></div>
+                     <div class="muted">${(it.labels||[]).map(l=>l.name).join(", ")}</div>`;
       div.onclick=()=>loadTicket(it.number);
       $list.appendChild(div);
     }
@@ -254,11 +271,15 @@ $btnSetStatus.onclick=async()=>{
 };
 
 // ----- attachments (compose) -----
+function humanList(files){
+  let total=0; const lines=[];
+  for(const f of files){ total+=f.size||0; lines.push(`${f.name} — ${(f.type||"application/octet-stream")} — ${(humanBytes(f.size))}`); }
+  return {text: lines.join(" | "), total};
+}
 function showChosenFiles(){
   const files=Array.from($replyFiles.files||[]); if(files.length===0){$fileList.textContent="";return;}
-  let total=0;
-  $fileList.innerHTML=files.map(f=>{total+=f.size||0;return `${esc(f.name)} — ${esc(f.type||"application/octet-stream")} — ${humanBytes(f.size)}`}).join("<br>");
-  $fileList.innerHTML+=`<div><em>Total ${humanBytes(total)}</em></div>`;
+  const {text,total}=humanList(files);
+  $fileList.textContent = `${text}   (Total ${humanBytes(total)})`;
 }
 $replyFiles.onchange=showChosenFiles;
 
@@ -268,7 +289,6 @@ $btnSend.onclick=async()=>{
   const text=($replyText.value||"").trim();
   const files=Array.from($replyFiles.files||[]);
   if(!text && files.length===0){$sendStatus.textContent="Type a reply or attach a file.";return;}
-  // limits
   const MAX_PER=5*1024*1024, MAX_TOTAL=10*1024*1024; let total=0;
   for(const f of files){ if(f.size>MAX_PER){$sendStatus.textContent=`File too big: ${f.name}`;return;} total+=f.size; }
   if(total>MAX_TOTAL){$sendStatus.textContent=`Total exceeds 10 MB`;return;}
@@ -319,7 +339,7 @@ window.addEventListener("hashchange",()=>{const t=getHashTicket(); if(t && t!=wi
 // boot
 (async function(){
   const ok=await diag();
-  if(!ok) return;
+  if(!ok) return;                 // will show login (or forceLogin)
   await refreshList("open");
   const h=getHashTicket(); if(h) loadTicket(h);
 })();
