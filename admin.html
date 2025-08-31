@@ -137,7 +137,6 @@ async function diag(){
 function showLogin(){ $("loginBox").style.display="block"; $("app").style.display="none"; }
 function showApp(){ $("loginBox").style.display="none"; $("app").style.display="block"; }
 
-// Force redirect to admin.html after successful login
 $("btnLogin").onclick=async()=>{
   const pw=$("pw").value.trim();
   $("loginMsg").textContent="Logging in…";
@@ -148,18 +147,11 @@ $("btnLogin").onclick=async()=>{
   const j=await r.json().catch(()=>({}));
   if(j.ok){
     $("loginMsg").textContent="Success!";
-    const target="https://help.linearit.co/admin.html";
-    // If we are already on admin.html, just load data; else redirect here.
-    if (location.href.replace(/[#?].*/,"") === target) {
-      await diag(); await refreshList("open");
-    } else {
-      // Use replace so back button doesn't go to the login page
-      location.replace(target);
-    }
+    // redirect to admin.html
+    window.location.href="/admin.html";
   } else $("loginMsg").textContent="Unauthorized.";
 };
 
-// show login quickly
 $("btnLogout").onclick=()=>{ showLogin(); };
 
 // ----- utils -----
@@ -174,26 +166,11 @@ function parseCommentBody(body){
   if(/^INTERNAL:/.test(first)) type="internal";
   const html=[]; const atts=[];
   for(const line of lines){
-    if(/^ATTACH-DATA:/.test(line)){
-      const rest=line.replace(/^ATTACH-DATA:/,"");
-      const [name="", mime="application/octet-stream", size="0", b64=""] = rest.split("|");
-      if(b64) atts.push({name,mime,size:parseInt(size,10)||0,b64});
-      continue;
-    }
     if(/!\[[^\]]*]\(data:[^)]+\)/.test(line)){
       const m=line.match(/!\[([^\]]*)]\((data:[^)]+)\)/);
       if(m){ html.push(`<img class="inline-img" alt="${esc(m[1])}" src="${m[2]}">`); continue; }
     }
     html.push(`<div>${esc(line)}</div>`);
-  }
-  if(atts.length>0){
-    html.push(`<div class="attachments">`);
-    for(const a of atts){
-      const href=makeBlobUrl(a.b64,a.mime);
-      const label=`${a.name} • ${a.mime} • ${humanBytes(a.size)}`;
-      html.push(`<span class="dl"><a href="${href}" download="${esc(a.name)}">Download ${esc(label)}</a></span>`);
-    }
-    html.push(`</div>`);
   }
   return {type, html:html.join("")};
 }
@@ -219,9 +196,6 @@ const $statusSel=$("statusSel"), $btnSetStatus=$("btnSetStatus");
 const $replyText=$("replyText"), $replyFiles=$("replyFiles"), $fileList=$("fileList");
 const $btnSend=$("btnSend"), $sendStatus=$("sendStatus");
 const $noteText=$("noteText"), $btnNote=$("btnNote"), $noteStatus=$("noteStatus");
-
-function setHashTicket(n){location.hash = n? `ticket=${n}` : "";}
-function getHashTicket(){const m=location.hash.match(/ticket=(\d+)/);return m?m[1]:null;}
 
 async function listTickets(view="open", q=""){
   if(q){
@@ -254,25 +228,24 @@ async function loadTicket(n){
   $("tTitle").textContent=issue.title || `(no title)`;
   $("tMeta").textContent=`#${n} • ${issue.state} • Updated ${new Date(issue.updated_at||issue.created_at).toLocaleString()}`;
   renderComments(issue,comments);
-  window.currentTicket=n; setHashTicket(n);
+  window.currentTicket=n;
 }
 
 // ----- status -----
-$("btnSetStatus").onclick=async()=>{
+$btnSetStatus.onclick=async()=>{
   if(!window.currentTicket) return;
-  const status=$("statusSel").value.trim(); if(!status) return;
-  $("btnSetStatus").disabled=true;
+  const status=$statusSel.value.trim(); if(!status) return;
+  $btnSetStatus.disabled=true;
   try{
     const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/status`,{
       method:"POST",headers:{"Content-Type":"application/json"},
       credentials:"include",body:JSON.stringify({status})
     });
     if(!r.ok){alert("Status update failed");} else { await loadTicket(window.currentTicket); }
-  }finally{$("btnSetStatus").disabled=false;}
+  }finally{$btnSetStatus.disabled=false;}
 };
 
 // ----- attachments (compose) -----
-function humanBytes(n){if(n===0)return"0 B";if(!n)return"";const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
 function showChosenFiles(){
   const files=Array.from($replyFiles.files||[]); if(files.length===0){$fileList.textContent="";return;}
   let total=0;
@@ -282,47 +255,42 @@ function showChosenFiles(){
 $replyFiles.onchange=showChosenFiles;
 
 // ----- send reply (multipart) -----
-$("btnSend").onclick=async()=>{
+$btnSend.onclick=async()=>{
   if(!window.currentTicket) return;
-  const text=($("replyText").value||"").trim();
-  const files=Array.from($("replyFiles").files||[]);
-  if(!text && files.length===0){$("sendStatus").textContent="Type a reply or attach a file.";return;}
-  const MAX_PER=5*1024*1024, MAX_TOTAL=10*1024*1024; let total=0;
-  for(const f of files){ if(f.size>MAX_PER){$("sendStatus").textContent=`File too big: ${f.name}`;return;} total+=f.size; }
-  if(total>MAX_TOTAL){$("sendStatus").textContent=`Total exceeds 10 MB`;return;}
-
+  const text=($replyText.value||"").trim();
+  const files=Array.from($replyFiles.files||[]);
+  if(!text && files.length===0){$sendStatus.textContent="Type a reply or attach a file.";return;}
   const fd=new FormData(); fd.append("text",text);
   for(const f of files) fd.append("files",f);
 
-  $("btnSend").disabled=true; $("sendStatus").textContent="Sending…";
+  $btnSend.disabled=true; $sendStatus.textContent="Sending…";
   try{
     const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/reply`,{method:"POST",body:fd,credentials:"include"});
     const j=await r.json().catch(()=>({}));
-    if(!r.ok){$("sendStatus").textContent=`Error ${r.status}`;}
+    if(!r.ok){$sendStatus.textContent=`Error ${r.status}`;}
     else{
-      $("replyText").value=""; $("replyFiles").value=""; showChosenFiles();
+      $replyText.value=""; $replyFiles.value=""; showChosenFiles();
       await loadTicket(window.currentTicket);
-      if(j.email && j.email.ok) $("sendStatus").textContent="Sent ✓";
-      else if(j.email && j.email.status) $("sendStatus").textContent=`Resend: ${j.email.status}`;
-      else $("sendStatus").textContent="Logged only.";
+      if(j.email && j.email.ok) $sendStatus.textContent="Sent ✓";
+      else $sendStatus.textContent="Logged only.";
     }
-  }catch{ $("sendStatus").textContent="Network error"; }
-  finally{ $("btnSend").disabled=false; }
+  }catch{ $sendStatus.textContent="Network error"; }
+  finally{ $btnSend.disabled=false; }
 };
 
 // ----- internal note -----
-$("btnNote").onclick=async()=>{
+$btnNote.onclick=async()=>{
   if(!window.currentTicket) return;
-  const text=($("noteText").value||"").trim(); if(!text){$("noteStatus").textContent="Type something";return;}
-  $("btnNote").disabled=true; $("noteStatus").textContent="Saving…";
+  const text=($noteText.value||"").trim(); if(!text){$noteStatus.textContent="Type something";return;}
+  $btnNote.disabled=true; $noteStatus.textContent="Saving…";
   try{
     const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/note`,{
       method:"POST",headers:{"Content-Type":"application/json"},
       credentials:"include",body:JSON.stringify({text})
     });
-    if(!r.ok){$("noteStatus").textContent="Error";} else { $("noteText").value=""; await loadTicket(window.currentTicket); $("noteStatus").textContent="Added ✓"; }
-  }catch{ $("noteStatus").textContent="Network error"; }
-  finally{$("btnNote").disabled=false;}
+    if(!r.ok){$noteStatus.textContent="Error";} else { $noteText.value=""; await loadTicket(window.currentTicket); $noteStatus.textContent="Added ✓"; }
+  }catch{ $noteStatus.textContent="Network error"; }
+  finally{$btnNote.disabled=false;}
 };
 
 // ----- search & filters -----
@@ -334,9 +302,8 @@ $("btnRefresh").onclick=()=>refreshList();
 // init
 (async function(){
   const ok=await diag();
-  if(!ok){ showLogin(); return; }
+  if(!ok) return;
   await refreshList("open");
-  const m=location.hash.match(/ticket=(\d+)/); if(m) loadTicket(m[1]);
 })();
 </script>
 </body>
