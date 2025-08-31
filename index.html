@@ -2,111 +2,89 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Submit a ticket • Linear Desk</title>
+  <title>Linear Desk — Submit a ticket</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    body{margin:0;background:#0b1220;color:#e5e7eb;font:14px/1.45 system-ui,sans-serif}
-    .wrap{max-width:720px;margin:48px auto;padding:0 16px}
+    body{font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;margin:0;background:#0b1220;color:#e5e7eb}
+    .wrap{max-width:720px;margin:40px auto;padding:0 16px}
     .card{background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:16px}
-    h1{margin:0 0 12px}
-    label{display:block;margin:10px 0 6px;color:#94a3b8}
     input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid #1f2937;background:#0b1730;color:#e5e7eb}
+    label{display:block;margin:10px 0 6px;color:#94a3b8}
     button{background:#111827;color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer}
     button:hover{background:#1f2937}
     .muted{color:#94a3b8}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .hint{font-size:12px;color:#94a3b8;margin-top:4px}
   </style>
 </head>
 <body>
 <div class="wrap">
+  <h1>Submit a support request</h1>
   <div class="card">
-    <h1>Submit a support request</h1>
-    <label>Your name</label>
-    <input id="name" placeholder="Jane Doe"/>
+    <form id="f">
+      <label>Name</label>
+      <input name="name" required/>
 
-    <label>Your email</label>
-    <input id="email" placeholder="you@example.com"/>
+      <label>Email</label>
+      <input name="email" type="email" required/>
 
-    <label>Subject</label>
-    <input id="subject" placeholder="What do you need help with?"/>
+      <label>Subject</label>
+      <input name="subject" required/>
 
-    <label>Message</label>
-    <textarea id="message" rows="6" placeholder="Describe the issue…"></textarea>
+      <label>Message <span class="muted">(if applicable, please add a screenshot or picture so we can help you better)</span></label>
+      <textarea name="message" rows="6" required></textarea>
 
-    <label>Priority (optional)</label>
-    <select id="priority">
-      <option value="">Normal (default)</option>
-      <option>urgent</option>
-      <option>low</option>
-    </select>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <div style="flex:1">
+          <label>Priority</label>
+          <select name="priority">
+            <option>normal</option>
+            <option>high</option>
+            <option>urgent</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label>Category</label>
+          <select name="category">
+            <option>general</option>
+            <option>hardware</option>
+            <option>software</option>
+            <option>network</option>
+          </select>
+        </div>
+      </div>
 
-    <label>Attachments (optional)</label>
-    <input id="files" type="file" multiple/>
-    <div class="hint">If applicable, please add a screenshot or photo so we can help you faster.</div>
-    <div class="muted" id="filesInfo" style="margin-top:6px"></div>
+      <label style="margin-top:10px">Attachments</label>
+      <input name="files" type="file" multiple/>
 
-    <div class="row" style="margin-top:12px">
-      <button id="btnSend">Send</button>
-      <span class="muted" id="status"></span>
-    </div>
+      <!-- honeypot (hidden to humans) -->
+      <input name="website" style="display:none"/>
+
+      <div style="margin-top:14px; display:flex; gap:8px; align-items:center">
+        <button type="submit">Submit</button>
+        <span id="status" class="muted"></span>
+      </div>
+    </form>
   </div>
 </div>
 
 <script>
 const API = "https://api.help.linearit.co";
-const $ = id => document.getElementById(id);
 
-function human(n){if(!n)return"0 B";const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(i?1:0)+' '+u[i]}
+document.getElementById("f").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const st = document.getElementById("status");
+  st.textContent = "Submitting…";
 
-$("files").addEventListener("change", ()=>{
-  const fs = Array.from($("files").files||[]);
-  const total = fs.reduce((a,f)=>a+(f.size||0),0);
-  $("filesInfo").textContent = fs.length ? `${fs.length} file(s), total ${human(total)}` : "";
-});
-
-$("btnSend").onclick = async ()=>{
-  const name = $("name").value.trim();
-  const email = $("email").value.trim();
-  const subject = $("subject").value.trim();
-  const message = $("message").value.trim();
-  const priority = $("priority").value.trim();
-
-  if(!name || !email || !subject || !message){
-    $("status").textContent = "Please fill in name, email, subject, and message.";
-    return;
-  }
-
-  // Build multipart/form-data so we can include files
-  const fd = new FormData();
-  fd.append("name", name);
-  fd.append("email", email);
-  fd.append("subject", subject);
-  fd.append("message", message);
-  if (priority) fd.append("priority", priority);
-  fd.append("honeypot", ""); // keep blank
-
-  const fs = $("files").files;
-  for (const f of fs) fd.append("files", f);
-
-  $("btnSend").disabled = true;
-  $("status").textContent = "Sending…";
+  const fd = new FormData(e.target);
   try{
     const r = await fetch(`${API}/`, { method:"POST", body: fd });
-    const j = await r.json().catch(()=>({}));
-    if(r.ok && j.ok){
-      $("status").textContent = `Thanks! Ticket #${j.issue_number} was created.`;
-      $("name").value = $("email").value = $("subject").value = $("message").value = "";
-      $("priority").value = ""; $("files").value = ""; $("filesInfo").textContent = "";
-    }else{
-      $("status").textContent = `Error: ${j.error||("HTTP "+r.status)}`;
-    }
-  }catch{
-    $("status").textContent = "Network error.";
-  }finally{
-    $("btnSend").disabled = false;
+    const j = await r.json().catch(()=> ({}));
+    if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    st.textContent = `Ticket created! #${j.issue_number}`;
+    e.target.reset();
+  }catch(err){
+    st.textContent = `Error: ${err.message || "Submit failed"}`;
   }
-};
+});
 </script>
 </body>
 </html>
