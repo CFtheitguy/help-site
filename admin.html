@@ -5,7 +5,7 @@
   <title>Linear Desk — Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    :root{--bg:#0b1220;--panel:#0f172a;--muted:#94a3b8;--text:#e5e7eb;--border:#1f2937}
+    :root{--bg:#0b1220;--panel:#0f172a;--muted:#94a3b8;--text:#e5e7eb;--border:#1f2937;--accent:#6ee7b7}
     *{box-sizing:border-box}
     html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
@@ -35,6 +35,8 @@
     .inline-img{display:block;max-width:280px;max-height:180px;border-radius:8px;border:1px solid var(--border);margin:8px 0}
     #loginBox{max-width:420px;margin:80px auto}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .filename{max-width:280px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+    .code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#0c1a34;border:1px solid var(--border);border-radius:8px;padding:6px}
   </style>
 </head>
 <body>
@@ -147,33 +149,85 @@ $("btnLogin").onclick=async()=>{
   const j=await r.json().catch(()=>({}));
   if(j.ok){
     $("loginMsg").textContent="Success!";
-    // redirect to admin.html
+    // Redirect so staff never lands on the client ticket page
     window.location.href="/admin.html";
   } else $("loginMsg").textContent="Unauthorized.";
 };
-
 $("btnLogout").onclick=()=>{ showLogin(); };
 
 // ----- utils -----
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function humanBytes(n){if(n===0)return"0 B";if(!n)return"";const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
-function makeBlobUrl(b64,mime){try{const bin=atob(b64),buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([buf],{type:mime||"application/octet-stream"}));}catch{return"#"}}
+function makeBlobUrlFromBase64(b64,mime){
+  try{
+    const bin=atob(b64),buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([buf],{type:mime||"application/octet-stream"}));
+  }catch{return"#"}
+}
+function shorten(name,max=42){
+  if(!name) return "(attachment)";
+  if(name.length<=max) return name;
+  const half=Math.floor((max-3)/2);
+  return name.slice(0,half)+"…"+name.slice(-half);
+}
+
+// Parse a GitHub issue/comment body and render attachments
 function parseCommentBody(body){
   const lines=(body||"").split(/\r?\n/);
   const first=(lines[0]||"").trim();
   let type="comment";
   if(/^PUBLIC:/.test(first)) type="public";
   if(/^INTERNAL:/.test(first)) type="internal";
-  const html=[]; const atts=[];
+
+  const html=[]; const atts=[]; const plain=[];
   for(const line of lines){
+    // Attachment data line emitted by Workers:
+    // ATTACH-DATA:filename|mime|size|base64
+    if(/^ATTACH-DATA:/.test(line)){
+      const rest=line.replace(/^ATTACH-DATA:/,"");
+      const parts=rest.split("|");
+      const name = parts[0] || "attachment";
+      const mime = parts[1] || "application/octet-stream";
+      const size = parseInt(parts[2]||"0",10) || 0;
+      const b64  = parts[3] || "";
+      atts.push({name,mime,size,b64});
+      continue;
+    }
+    // Markdown inline data image (from email for small images)
     if(/!\[[^\]]*]\(data:[^)]+\)/.test(line)){
       const m=line.match(/!\[([^\]]*)]\((data:[^)]+)\)/);
       if(m){ html.push(`<img class="inline-img" alt="${esc(m[1])}" src="${m[2]}">`); continue; }
     }
-    html.push(`<div>${esc(line)}</div>`);
+    plain.push(line);
+  }
+
+  // main text
+  if(plain.length){
+    // Auto-link bare URLs to known file types (fallback)
+    const joined=plain.join("\n").replace(
+      /(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|pdf|txt|zip|docx|xlsx|pptx))/gi,
+      (u)=>`<a href="${u}" target="_blank">${esc(u.split("/").pop())}</a>`
+    ).replace(/\n/g,"<br>");
+    html.push(`<div>${joined}</div>`);
+  }
+
+  // attachments (convert to blob URLs)
+  if(atts.length>0){
+    html.push(`<div class="attachments">`);
+    for(const a of atts){
+      const href=a.b64 ? makeBlobUrlFromBase64(a.b64,a.mime) : "#";
+      const label=`<span class="filename" title="${esc(a.name)}">${esc(shorten(a.name,48))}</span> • ${esc(a.mime)} • ${humanBytes(a.size)}`;
+      html.push(`<span class="dl"><a href="${href}" download="${esc(a.name)}">Download ${label}</a></span>`);
+      if(/^image\//i.test(a.mime) && a.b64 && a.size<=2_000_000){
+        const dataUrl=`data:${a.mime};base64,${a.b64}`;
+        html.push(`<img class="inline-img" src="${dataUrl}" alt="${esc(a.name)}">`);
+      }
+    }
+    html.push(`</div>`);
   }
   return {type, html:html.join("")};
 }
+
 function renderComments(issue,comments){
   const box=$("comments"); box.innerHTML="";
   const d0=document.createElement("div"); d0.className="comment";
@@ -197,6 +251,9 @@ const $replyText=$("replyText"), $replyFiles=$("replyFiles"), $fileList=$("fileL
 const $btnSend=$("btnSend"), $sendStatus=$("sendStatus");
 const $noteText=$("noteText"), $btnNote=$("btnNote"), $noteStatus=$("noteStatus");
 
+function setHashTicket(n){location.hash = n? `ticket=${n}` : "";}
+function getHashTicket(){const m=location.hash.match(/ticket=(\d+)/);return m?m[1]:null;}
+
 async function listTickets(view="open", q=""){
   if(q){
     const r=await fetch(`${API}/admin/tickets?view=search&q=${encodeURIComponent(q)}`,{credentials:"include"});
@@ -214,7 +271,7 @@ async function refreshList(kind){
     $list.innerHTML="";
     for(const it of items){
       const div=document.createElement("div"); div.className="item";
-      div.innerHTML=`<div style="font-weight:600">${(it.title||"(no title)") } <span class="muted">#${it.number}</span></div>
+      div.innerHTML=`<div style="font-weight:600">${(it.title||"(no title)" )} <span class="muted">#${it.number}</span></div>
                      <div class="muted">${(it.labels||[]).map(l=>l.name).join(", ")}</div>`;
       div.onclick=()=>loadTicket(it.number);
       $list.appendChild(div);
@@ -228,7 +285,7 @@ async function loadTicket(n){
   $("tTitle").textContent=issue.title || `(no title)`;
   $("tMeta").textContent=`#${n} • ${issue.state} • Updated ${new Date(issue.updated_at||issue.created_at).toLocaleString()}`;
   renderComments(issue,comments);
-  window.currentTicket=n;
+  window.currentTicket=n; setHashTicket(n);
 }
 
 // ----- status -----
@@ -249,7 +306,7 @@ $btnSetStatus.onclick=async()=>{
 function showChosenFiles(){
   const files=Array.from($replyFiles.files||[]); if(files.length===0){$fileList.textContent="";return;}
   let total=0;
-  $fileList.innerHTML=files.map(f=>{total+=f.size||0;return `${f.name} — ${(f.type||"application/octet-stream")} — ${humanBytes(f.size)}`}).join(" | ");
+  $fileList.innerHTML=files.map(f=>{total+=f.size||0;return `${shorten(f.name,36)} — ${(f.type||"application/octet-stream")} — ${humanBytes(f.size)}`}).join(" | ");
   $fileList.innerHTML+=` <em>(Total ${humanBytes(total)})</em>`;
 }
 $replyFiles.onchange=showChosenFiles;
@@ -260,6 +317,10 @@ $btnSend.onclick=async()=>{
   const text=($replyText.value||"").trim();
   const files=Array.from($replyFiles.files||[]);
   if(!text && files.length===0){$sendStatus.textContent="Type a reply or attach a file.";return;}
+  const MAX_PER=5*1024*1024, MAX_TOTAL=10*1024*1024; let total=0;
+  for(const f of files){ if(f.size>MAX_PER){$sendStatus.textContent=`File too big: ${f.name}`;return;} total+=f.size; }
+  if(total>MAX_TOTAL){$sendStatus.textContent=`Total exceeds 10 MB`;return;}
+
   const fd=new FormData(); fd.append("text",text);
   for(const f of files) fd.append("files",f);
 
@@ -272,6 +333,7 @@ $btnSend.onclick=async()=>{
       $replyText.value=""; $replyFiles.value=""; showChosenFiles();
       await loadTicket(window.currentTicket);
       if(j.email && j.email.ok) $sendStatus.textContent="Sent ✓";
+      else if(j.email && j.email.status) $sendStatus.textContent=`Resend: ${j.email.status}`;
       else $sendStatus.textContent="Logged only.";
     }
   }catch{ $sendStatus.textContent="Network error"; }
@@ -304,6 +366,7 @@ $("btnRefresh").onclick=()=>refreshList();
   const ok=await diag();
   if(!ok) return;
   await refreshList("open");
+  const m=location.hash.match(/ticket=(\d+)/); if(m) loadTicket(m[1]);
 })();
 </script>
 </body>
