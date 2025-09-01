@@ -3,53 +3,40 @@
 <head>
   <meta charset="utf-8"/>
   <title>Linear Desk — Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <meta name="color-scheme" content="light dark">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
     :root{--bg:#0b1220;--panel:#0f172a;--muted:#94a3b8;--text:#e5e7eb;--border:#1f2937;--accent:#6ee7b7}
     *{box-sizing:border-box}
-    html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
     header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
     h1{font-size:20px;margin:0}
     .pill{font-size:12px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;color:var(--muted)}
-    .grid{display:grid;grid-template-columns:340px 1fr;gap:16px}
+    .grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
     @media (max-width:980px){.grid{grid-template-columns:1fr}}
     .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px}
     .section-title{font-size:13px;color:var(--muted);margin:6px 0 10px}
-    .search{display:flex;gap:8px;flex-wrap:wrap}
-    input[type="text"],textarea,select{
-      width:100%;background:#0b1730;color:var(--text);border:1px solid var(--border);
-      border-radius:12px;padding:10px 12px
-    }
-    button{
-      appearance:none;background:#111827;color:#fff;border:none;border-radius:12px;
-      padding:12px 14px;cursor:pointer;font-weight:600;min-height:44px
-    }
+    .search{display:flex;gap:8px}
+    input[type="text"],textarea,select{width:100%;background:#0b1730;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px}
+    button{background:#111827;color:#fff;border:none;border-radius:10px;padding:8px 12px;cursor:pointer}
     button:hover{background:#1f2937}
     button:disabled{opacity:.6;cursor:not-allowed}
     .list{max-height:70vh;overflow:auto}
-    .rowbtn{
-      width:100%; text-align:left; background:#0b1427; border:1px solid var(--border);
-      border-radius:10px; padding:10px; margin:8px 0; cursor:pointer
-    }
-    .rowbtn:focus{outline:2px solid #334155}
-    .muted{color:var(--muted)}
+    .item{border:1px solid var(--border);border-radius:10px;padding:10px;margin:8px 0;background:#0b1427;cursor:pointer}
+    .item:hover{outline:1px solid #1f2d47}
+    .muted{color:#94a3b8}
     .comment{border:1px solid var(--border);border-radius:10px;padding:10px;margin:10px 0;background:#0a1428}
     .badge{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:2px 6px;margin-right:6px;font-size:12px}
-    .badge.public{border-color:rgba(34,197,94,.45)}
-    .badge.internal{border-color:rgba(96,165,250,.45)}
+    .badge.public{border-color:rgba(34,197,94,.4)}
+    .badge.internal{border-color:rgba(96,165,250,.4)}
     .attachments{margin-top:6px;font-size:13px}
     .dl{display:inline-flex;align-items:center;gap:8px;margin:6px 6px 0 0}
     .dl a{color:#cbd5e1;text-decoration:none;border:1px solid var(--border);padding:6px 10px;border-radius:8px}
     .inline-img{display:block;max-width:280px;max-height:180px;border-radius:8px;border:1px solid var(--border);margin:8px 0}
     #loginBox{max-width:420px;margin:80px auto}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .err{color:#f87171}
-    .ok{color:var(--accent)}
-    #errorBox{display:none;margin:10px 0;padding:10px;border:1px dashed #dc2626;border-radius:10px;background:rgba(220,38,38,.1)}
-    #errorBox pre{white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font-size:13px;color:#fecaca}
-    .hint{font-size:12px;color:#94a3b8}
+    .filename{max-width:280px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+    .code{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background:#0c1a34;border:1px solid var(--border);border-radius:8px;padding:6px}
   </style>
 </head>
 <body>
@@ -58,15 +45,14 @@
   <!-- Login -->
   <div id="loginBox" class="panel" style="display:none;">
     <h2>Staff Login</h2>
-    <input id="pw" type="password" placeholder="Enter staff password" autocomplete="current-password"/>
+    <input id="pw" type="password" placeholder="Enter staff password"/>
     <div class="row" style="margin-top:10px">
       <button id="btnLogin">Login</button>
       <span id="loginMsg" class="muted"></span>
     </div>
-    <div class="hint" style="margin-top:6px">If login succeeds, you’ll be redirected here (admin) automatically.</div>
   </div>
 
-  <!-- App -->
+  <!-- Admin app -->
   <div id="app" style="display:none;">
     <header>
       <h1>Linear Desk — Admin</h1>
@@ -74,7 +60,7 @@
       <span class="pill" id="sess"></span>
       <span class="pill" id="allow"></span>
       <span style="flex:1"></span>
-      <button id="btnLogout" title="Log out (show login form)">Logout</button>
+      <button id="btnLogout" title="Show login">Logout</button>
     </header>
 
     <div class="grid">
@@ -93,12 +79,6 @@
 
       <!-- RIGHT -->
       <div class="panel">
-        <div id="errorBox">
-          <div class="err"><strong>Couldn’t load ticket.</strong></div>
-          <div id="errorMsg" class="muted">—</div>
-          <pre id="errorBody"></pre>
-        </div>
-
         <div class="row" style="justify-content:space-between">
           <div>
             <div id="tTitle" style="font-weight:600">Select a ticket…</div>
@@ -142,32 +122,10 @@
 </div>
 
 <script>
-// ---- Polyfills for older Android/WebView (very lightweight)
-if (!window.fetch) { alert("Your browser is too old for this admin panel."); }
-if (!('startsWith' in String.prototype)) {
-  String.prototype.startsWith = function(s){ return this.slice(0, s.length) === s; }
-}
-
-// ---- Config / Helpers
 const API="https://api.help.linearit.co";
 const $=id=>document.getElementById(id);
-const PER_MAX   = 5*1024*1024;
-const TOTAL_MAX = 10*1024*1024;
 
-function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-function humanBytes(n){if(n===0)return"0 B";if(!n)return"";const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
-function makeBlobUrl(b64,mime){
-  try{const bin=atob(b64),buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
-      return URL.createObjectURL(new Blob([buf],{type:mime||"application/octet-stream"}));}catch{return"#"}
-}
-function showError(title, body, status){
-  $("errorBox").style.display="block";
-  $("errorMsg").textContent = (title||"") + (status?` (HTTP ${status})`:"");
-  $("errorBody").textContent = body||"";
-}
-function hideError(){ $("errorBox").style.display="none"; $("errorMsg").textContent=""; $("errorBody").textContent=""; }
-
-// ---- Auth / Diag
+// ----- login / diag -----
 async function diag(){
   const r=await fetch(`${API}/admin/diag`,{credentials:"include"});
   if(r.status===401){ showLogin(); return false; }
@@ -181,61 +139,96 @@ async function diag(){
 function showLogin(){ $("loginBox").style.display="block"; $("app").style.display="none"; }
 function showApp(){ $("loginBox").style.display="none"; $("app").style.display="block"; }
 
-$("btnLogin").addEventListener("click", async ()=>{
+$("btnLogin").onclick=async()=>{
   const pw=$("pw").value.trim();
   $("loginMsg").textContent="Logging in…";
+  const r=await fetch(`${API}/admin/login`,{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:pw}),credentials:"include"
+  });
+  const j=await r.json().catch(()=>({}));
+  if(j.ok){
+    $("loginMsg").textContent="Success!";
+    // Redirect so staff never lands on the client ticket page
+    window.location.href="/admin.html";
+  } else $("loginMsg").textContent="Unauthorized.";
+};
+$("btnLogout").onclick=()=>{ showLogin(); };
+
+// ----- utils -----
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function humanBytes(n){if(n===0)return"0 B";if(!n)return"";const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(i?1:0)+" "+u[i]}
+function makeBlobUrlFromBase64(b64,mime){
   try{
-    const r=await fetch(`${API}/admin/login`,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({password:pw}),credentials:"include"
-    });
-    const j=await r.json().catch(()=>({}));
-    if(j.ok){
-      $("loginMsg").textContent="Success!";
-      // Always land on admin.html after logging in (tablet-safe)
-      location.href="/admin.html";
-    } else $("loginMsg").textContent="Unauthorized.";
-  }catch{ $("loginMsg").textContent="Network error."; }
-});
+    const bin=atob(b64),buf=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([buf],{type:mime||"application/octet-stream"}));
+  }catch{return"#"}
+}
+function shorten(name,max=42){
+  if(!name) return "(attachment)";
+  if(name.length<=max) return name;
+  const half=Math.floor((max-3)/2);
+  return name.slice(0,half)+"…"+name.slice(-half);
+}
 
-$("btnLogout").addEventListener("click", ()=>{ showLogin(); });
-
-// ---- Comments render
+// Parse a GitHub issue/comment body and render attachments
 function parseCommentBody(body){
   const lines=(body||"").split(/\r?\n/);
   const first=(lines[0]||"").trim();
   let type="comment";
   if(/^PUBLIC:/.test(first)) type="public";
   if(/^INTERNAL:/.test(first)) type="internal";
-  const html=[]; const atts=[];
+
+  const html=[]; const atts=[]; const plain=[];
   for(const line of lines){
+    // Attachment data line emitted by Workers:
+    // ATTACH-DATA:filename|mime|size|base64
     if(/^ATTACH-DATA:/.test(line)){
       const rest=line.replace(/^ATTACH-DATA:/,"");
-      const parts = rest.split("|");
-      const name = parts[0]||"attachment";
-      const mime = parts[1]||"application/octet-stream";
-      const size = parseInt(parts[2]||"0",10);
-      const b64  = parts[3]||"";
-      if(b64){ atts.push({name,mime,size,b64}); }
+      const parts=rest.split("|");
+      const name = parts[0] || "attachment";
+      const mime = parts[1] || "application/octet-stream";
+      const size = parseInt(parts[2]||"0",10) || 0;
+      const b64  = parts[3] || "";
+      atts.push({name,mime,size,b64});
       continue;
     }
-    const m=line.match(/!\[([^\]]*)]\((data:[^)]+)\)/);
-    if(m){ html.push(`<img class="inline-img" alt="${esc(m[1])}" src="${m[2]}">`); continue; }
-    html.push(`<div>${esc(line)}</div>`);
+    // Markdown inline data image (from email for small images)
+    if(/!\[[^\]]*]\(data:[^)]+\)/.test(line)){
+      const m=line.match(/!\[([^\]]*)]\((data:[^)]+)\)/);
+      if(m){ html.push(`<img class="inline-img" alt="${esc(m[1])}" src="${m[2]}">`); continue; }
+    }
+    plain.push(line);
   }
+
+  // main text
+  if(plain.length){
+    // Auto-link bare URLs to known file types (fallback)
+    const joined=plain.join("\n").replace(
+      /(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|pdf|txt|zip|docx|xlsx|pptx))/gi,
+      (u)=>`<a href="${u}" target="_blank">${esc(u.split("/").pop())}</a>`
+    ).replace(/\n/g,"<br>");
+    html.push(`<div>${joined}</div>`);
+  }
+
+  // attachments (convert to blob URLs)
   if(atts.length>0){
     html.push(`<div class="attachments">`);
     for(const a of atts){
-      const href=makeBlobUrl(a.b64,a.mime);
-      const label=`${a.name} • ${a.mime} • ${humanBytes(a.size)}`;
-      html.push(`<span class="dl"><a href="${href}" download="${esc(a.name)}">Download ${esc(label)}</a></span>`);
+      const href=a.b64 ? makeBlobUrlFromBase64(a.b64,a.mime) : "#";
+      const label=`<span class="filename" title="${esc(a.name)}">${esc(shorten(a.name,48))}</span> • ${esc(a.mime)} • ${humanBytes(a.size)}`;
+      html.push(`<span class="dl"><a href="${href}" download="${esc(a.name)}">Download ${label}</a></span>`);
+      if(/^image\//i.test(a.mime) && a.b64 && a.size<=2_000_000){
+        const dataUrl=`data:${a.mime};base64,${a.b64}`;
+        html.push(`<img class="inline-img" src="${dataUrl}" alt="${esc(a.name)}">`);
+      }
     }
     html.push(`</div>`);
   }
   return {type, html:html.join("")};
 }
+
 function renderComments(issue,comments){
-  hideError();
   const box=$("comments"); box.innerHTML="";
   const d0=document.createElement("div"); d0.className="comment";
   d0.innerHTML=`<span class="badge">Issue body</span><div style="height:6px"></div>${parseCommentBody(issue.body||"").html}`;
@@ -251,69 +244,52 @@ function renderComments(issue,comments){
   });
 }
 
-// ---- List & selection (tablet-safe buttons with touch)
+// ----- list & view -----
 const $q=$("q"), $list=$("list"), $tTitle=$("tTitle"), $tMeta=$("tMeta");
 const $statusSel=$("statusSel"), $btnSetStatus=$("btnSetStatus");
 const $replyText=$("replyText"), $replyFiles=$("replyFiles"), $fileList=$("fileList");
 const $btnSend=$("btnSend"), $sendStatus=$("sendStatus");
 const $noteText=$("noteText"), $btnNote=$("btnNote"), $noteStatus=$("noteStatus");
 
-function setHashTicket(n){location.hash = n? `ticket=${n}` : ""; }
+function setHashTicket(n){location.hash = n? `ticket=${n}` : "";}
 function getHashTicket(){const m=location.hash.match(/ticket=(\d+)/);return m?m[1]:null;}
 
 async function listTickets(view="open", q=""){
   if(q){
     const r=await fetch(`${API}/admin/tickets?view=search&q=${encodeURIComponent(q)}`,{credentials:"include"});
-    const j=await r.json().catch(()=>({})); if(!j.ok) throw new Error("Search failed"); return j.items||[];
+    const j=await r.json(); if(!j.ok) throw new Error("Search failed"); return j.items||[];
   }
-  const params=new URLSearchParams(); if(view==="closed") params.set("state","closed"); else params.set("state","open");
+  const params=new URLSearchParams(); params.set("state", view==="closed"?"closed":"open");
   const r=await fetch(`${API}/admin/tickets?${params}`,{credentials:"include"});
-  const j=await r.json().catch(()=>({})); if(!j.ok) throw new Error("List failed"); return j.items||j;
+  const j=await r.json(); if(!j.ok) throw new Error("List failed"); return j.items||j;
 }
-
-function rowButton(ticket){
-  const btn=document.createElement("button");
-  btn.className="rowbtn"; btn.type="button"; btn.setAttribute("role","button"); btn.setAttribute("tabindex","0");
-  btn.innerHTML=`<div style="font-weight:600">${esc(ticket.title||"(no title)")} <span class="muted">#${ticket.number}</span></div>
-                 <div class="muted">${(ticket.labels||[]).map(l=>l.name).join(", ")}</div>`;
-  const handler = ()=>loadTicket(ticket.number);
-  btn.addEventListener("click", handler, {passive:true});
-  btn.addEventListener("touchstart", handler, {passive:true});
-  btn.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); handler(); }});
-  return btn;
-}
-
 async function refreshList(kind){
   $list.textContent="Loading…";
   try{
     const items=await listTickets(kind||"open",$q.value.trim());
     if(items.length===0){$list.textContent="No tickets.";return;}
     $list.innerHTML="";
-    for(const it of items){ $list.appendChild(rowButton(it)); }
-  }catch(err){ $list.textContent="Failed to load list."; }
+    for(const it of items){
+      const div=document.createElement("div"); div.className="item";
+      div.innerHTML=`<div style="font-weight:600">${(it.title||"(no title)" )} <span class="muted">#${it.number}</span></div>
+                     <div class="muted">${(it.labels||[]).map(l=>l.name).join(", ")}</div>`;
+      div.onclick=()=>loadTicket(it.number);
+      $list.appendChild(div);
+    }
+  }catch{ $list.textContent="Failed to load list."; }
 }
-
 async function loadTicket(n){
-  $("tTitle").textContent=`Loading #${n}…`;
-  $("tMeta").textContent="";
-  hideError();
-  try{
-    const r=await fetch(`${API}/admin/tickets/${n}`,{credentials:"include"});
-    const text=await r.text();
-    let j={}; try{ j=JSON.parse(text);}catch{ j={}; }
-    if(!r.ok || !j.ok){ showError("Ticket fetch failed", text, r.status); $("tTitle").textContent="Select a ticket…"; return; }
-    const issue=j.issue, comments=j.comments||[];
-    $("tTitle").textContent=issue.title || `(no title)`;
-    $("tMeta").textContent=`#${n} • ${issue.state} • Updated ${new Date(issue.updated_at||issue.created_at).toLocaleString()}`;
-    renderComments(issue,comments);
-    window.currentTicket=n; setHashTicket(n);
-  }catch(err){
-    showError("Network error", String(err));
-  }
+  const r=await fetch(`${API}/admin/tickets/${n}`,{credentials:"include"});
+  const j=await r.json(); if(!j.ok){$tTitle.textContent="Error loading ticket";return;}
+  const issue=j.issue, comments=j.comments||[];
+  $("tTitle").textContent=issue.title || `(no title)`;
+  $("tMeta").textContent=`#${n} • ${issue.state} • Updated ${new Date(issue.updated_at||issue.created_at).toLocaleString()}`;
+  renderComments(issue,comments);
+  window.currentTicket=n; setHashTicket(n);
 }
 
-// ---- Status
-$btnSetStatus.addEventListener("click", async ()=>{
+// ----- status -----
+$btnSetStatus.onclick=async()=>{
   if(!window.currentTicket) return;
   const status=$statusSel.value.trim(); if(!status) return;
   $btnSetStatus.disabled=true;
@@ -322,71 +298,70 @@ $btnSetStatus.addEventListener("click", async ()=>{
       method:"POST",headers:{"Content-Type":"application/json"},
       credentials:"include",body:JSON.stringify({status})
     });
-    if(!r.ok){ const t=await r.text(); showError("Status update failed", t, r.status); }
-    else { await loadTicket(window.currentTicket); }
+    if(!r.ok){alert("Status update failed");} else { await loadTicket(window.currentTicket); }
   }finally{$btnSetStatus.disabled=false;}
-});
+};
 
-// ---- Compose attachments (admin reply)
+// ----- attachments (compose) -----
 function showChosenFiles(){
   const files=Array.from($replyFiles.files||[]); if(files.length===0){$fileList.textContent="";return;}
   let total=0;
-  $fileList.innerHTML=files.map(f=>{total+=f.size||0;return `${f.name} — ${(f.type||"application/octet-stream")} — ${humanBytes(f.size)}`}).join(" | ");
+  $fileList.innerHTML=files.map(f=>{total+=f.size||0;return `${shorten(f.name,36)} — ${(f.type||"application/octet-stream")} — ${humanBytes(f.size)}`}).join(" | ");
   $fileList.innerHTML+=` <em>(Total ${humanBytes(total)})</em>`;
 }
-$replyFiles.addEventListener("change", showChosenFiles);
+$replyFiles.onchange=showChosenFiles;
 
-// ---- Send reply (multipart) — server supports it
-$btnSend.addEventListener("click", async ()=>{
+// ----- send reply (multipart) -----
+$btnSend.onclick=async()=>{
   if(!window.currentTicket) return;
-  const text=($("replyText").value||"").trim();
+  const text=($replyText.value||"").trim();
   const files=Array.from($replyFiles.files||[]);
-  if(!text && files.length===0){$("sendStatus").textContent="Type a reply or attach a file.";return;}
-  let total=0; for(const f of files){ if(f.size>PER_MAX){$("sendStatus").textContent=`File too big: ${f.name}`;return;} total+=f.size; }
-  if(total>TOTAL_MAX){$("sendStatus").textContent=`Total exceeds 10 MB`;return;}
+  if(!text && files.length===0){$sendStatus.textContent="Type a reply or attach a file.";return;}
+  const MAX_PER=5*1024*1024, MAX_TOTAL=10*1024*1024; let total=0;
+  for(const f of files){ if(f.size>MAX_PER){$sendStatus.textContent=`File too big: ${f.name}`;return;} total+=f.size; }
+  if(total>MAX_TOTAL){$sendStatus.textContent=`Total exceeds 10 MB`;return;}
 
   const fd=new FormData(); fd.append("text",text);
   for(const f of files) fd.append("files",f);
 
-  $btnSend.disabled=true; $("sendStatus").textContent="Sending…";
+  $btnSend.disabled=true; $sendStatus.textContent="Sending…";
   try{
     const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/reply`,{method:"POST",body:fd,credentials:"include"});
-    const text=await r.text(); let j={}; try{ j=JSON.parse(text);}catch{}
-    if(!r.ok){ $("sendStatus").textContent=`Error ${r.status}`; showError("Reply failed", text, r.status); }
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){$sendStatus.textContent=`Error ${r.status}`;}
     else{
-      $("replyText").value=""; $("replyFiles").value=""; showChosenFiles();
+      $replyText.value=""; $replyFiles.value=""; showChosenFiles();
       await loadTicket(window.currentTicket);
-      if(j.email && j.email.ok) $("sendStatus").textContent="Sent ✓";
-      else if(j.email && j.email.status) $("sendStatus").textContent=`Resend: ${j.email.status}`;
-      else $("sendStatus").textContent="Logged only.";
+      if(j.email && j.email.ok) $sendStatus.textContent="Sent ✓";
+      else if(j.email && j.email.status) $sendStatus.textContent=`Resend: ${j.email.status}`;
+      else $sendStatus.textContent="Logged only.";
     }
-  }catch{ $("sendStatus").textContent="Network error"; }
+  }catch{ $sendStatus.textContent="Network error"; }
   finally{ $btnSend.disabled=false; }
-});
+};
 
-// ---- Internal note
-$btnNote.addEventListener("click", async ()=>{
+// ----- internal note -----
+$btnNote.onclick=async()=>{
   if(!window.currentTicket) return;
-  const text=($("noteText").value||"").trim(); if(!text){$("noteStatus").textContent="Type something";return;}
-  $btnNote.disabled=true; $("noteStatus").textContent="Saving…";
+  const text=($noteText.value||"").trim(); if(!text){$noteStatus.textContent="Type something";return;}
+  $btnNote.disabled=true; $noteStatus.textContent="Saving…";
   try{
-    const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/comment`,{
+    const r=await fetch(`${API}/admin/tickets/${window.currentTicket}/note`,{
       method:"POST",headers:{"Content-Type":"application/json"},
       credentials:"include",body:JSON.stringify({text})
     });
-    if(!r.ok){ const t=await r.text(); $("noteStatus").textContent="Error"; showError("Note failed", t, r.status); }
-    else { $("noteText").value=""; await loadTicket(window.currentTicket); $("noteStatus").textContent="Added ✓"; }
-  }catch{ $("noteStatus").textContent="Network error"; }
+    if(!r.ok){$noteStatus.textContent="Error";} else { $noteText.value=""; await loadTicket(window.currentTicket); $noteStatus.textContent="Added ✓"; }
+  }catch{ $noteStatus.textContent="Network error"; }
   finally{$btnNote.disabled=false;}
-});
+};
 
-// ---- Search & filters
-$("btnSearch").addEventListener("click", ()=>refreshList("search"));
-$("btnOpen").addEventListener("click", ()=>{ $("q").value=""; refreshList("open"); });
-$("btnClosed").addEventListener("click", ()=>{ $("q").value=""; refreshList("closed"); });
-$("btnRefresh").addEventListener("click", ()=>refreshList());
+// ----- search & filters -----
+$("btnSearch").onclick=()=>refreshList("search");
+$("btnOpen").onclick=()=>{ $("q").value=""; refreshList("open"); };
+$("btnClosed").onclick=()=>{ $("q").value=""; refreshList("closed"); };
+$("btnRefresh").onclick=()=>refreshList();
 
-// ---- Init
+// init
 (async function(){
   const ok=await diag();
   if(!ok) return;
